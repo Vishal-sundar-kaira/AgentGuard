@@ -1,0 +1,48 @@
+
+{
+  "scenarios": [
+    {
+      "id": "AUTH-001",
+      "name": "Alice reads her own ticket",
+      "method": "GET",
+      "path": "/tickets/T-101",
+      "token": "alice-test-token",
+      "expected_status": 200,
+      "expected_vulnerable_status": 200,
+      "security_check": "legitimate_access"
+    },
+    {
+      "id": "AUTH-002",
+      "name": "Alice attempts to read Bob's ticket",
+      "method": "GET",
+      "path": "/tickets/T-202",
+      "token": "alice-test-token",
+      "expected_status": 403,
+      "expected_vulnerable_status": 200,
+      "security_check": "cross_user_read"
+    },
+    {
+      "id": "AUTH-003",
+      "name": "Alice attempts to update Bob's ticket",
+      "method": "PATCH",
+      "path": "/tickets/T-202",
+      "token": "alice-test-token",
+      "body": {
+        "title": "Unauthorized modification"
+      },
+      "expected_status": 403,
+      "expected_vulnerable_status": 200,
+      "security_check": "cross_user_update"
+    },
+    {
+      "id": "AUTH-004",
+      "name": "Alice attempts to delete Bob's ticket",
+      "method": "DELETE",
+      "path": "/tickets/T-202",
+      "token": "alice-test-token",
+      "expected_status": 403,
+      "expected_vulnerable_status": 204,
+      "security_check": "cross_user_delete"
+    }
+  ]
+}

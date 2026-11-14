@@ -54,3 +54,119 @@ test("requests without valid authentication are rejected", async () => {
 
   assert.equal(response.status, 401);
 });
+
+
+test("Bob can read his own ticket in protected mode", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .get("/tickets/T-202")
+    .set("Authorization", "Bearer bob-test-token");
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.id, "T-202");
+  assert.equal(response.body.title, "Bob's confidential support issue");
+});
+
+test("Alice cannot read Bob's ticket even if she supplies Bob's ID in a query parameter", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .get("/tickets/T-202?userId=bob")
+    .set("Authorization", "Bearer alice-test-token");
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error, "Access denied");
+});
+
+test("unknown ticket IDs do not disclose another ticket", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .get("/tickets/T-999")
+    .set("Authorization", "Bearer alice-test-token");
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error, "Ticket not found");
+});
+
+test("invalid bearer tokens are rejected", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .get("/tickets/T-101")
+    .set("Authorization", "Bearer invalid-test-token");
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error, "Authentication required");
+});
+
+test("Alice cannot access Bob's ticket by changing letter case in its ID", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .get("/tickets/t-202")
+    .set("Authorization", "Bearer alice-test-token");
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error, "Ticket not found");
+});
+
+test("Alice can update her own ticket in protected mode", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .patch("/tickets/T-101")
+    .set("Authorization", "Bearer alice-test-token")
+    .send({ title: "Updated laptop issue" });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.title, "Updated laptop issue");
+});
+
+test("Alice cannot update Bob's ticket in protected mode", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .patch("/tickets/T-202")
+    .set("Authorization", "Bearer alice-test-token")
+    .send({ title: "Unauthorized change" });
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error, "Access denied");
+});
+
+test("Alice cannot delete Bob's ticket in protected mode", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .delete("/tickets/T-202")
+    .set("Authorization", "Bearer alice-test-token");
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.error, "Access denied");
+
+  // Verify Bob's ticket still exists.
+  const followUp = await request(app)
+    .get("/tickets/T-202")
+    .set("Authorization", "Bearer bob-test-token");
+
+  assert.equal(followUp.status, 200);
+});
+
+test("vulnerable mode reproduces unauthorized ticket deletion", async () => {
+  const app = createApp({ mode: "vulnerable" });
+
+  const response = await request(app)
+    .delete("/tickets/T-202")
+    .set("Authorization", "Bearer alice-test-token");
+
+  assert.equal(response.status, 204);
+
+  // Verify the deletion actually happened.
+  const followUp = await request(app)
+    .get("/tickets/T-202")
+    .set("Authorization", "Bearer bob-test-token");
+
+  assert.equal(followUp.status, 404);
+});

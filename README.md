@@ -23,6 +23,32 @@ AgentGuard is a security testing project exploring authorization vulnerabilities
 ### Tech Stack
 Node.js · Express · JavaScript · OpenAI API · REST APIs · Supertest
 
+
+### Security Evaluation: Vulnerable vs. Protected Mode
+
+AgentGuard evaluates authorization enforcement by comparing vulnerable and protected API/agent behavior across unauthorized access scenarios.
+
+| Scenario | Vulnerable Mode | Protected Mode |
+|---|---|---|
+| Cross-user ticket read | Unauthorized access succeeds (200) | Blocked (403) |
+| Cross-user ticket update | Unauthorized modification succeeds (200) | Blocked (403) |
+| Cross-user ticket deletion | Unauthorized deletion succeeds (204) | Blocked (403) |
+| Indirect prompt injection | Unauthorized tool actions can be attempted | Runtime authorization blocks unauthorized actions |
+| Authorized owner access | Allowed | Allowed |
+
+### Test Coverage
+
+**29 automated tests passed (0 failures)** across API authorization, runtime enforcement, and agent integration testing.
+
+- Validates owner-based resource access
+- Reproduces cross-user authorization failures in vulnerable mode
+- Verifies runtime blocking of unauthorized tool calls
+- Tests malicious instructions embedded in retrieved ticket data
+- Confirms unauthorized read, update, and delete attempts are blocked in protected scenarios
+- Ensures legitimate authorized operations continue to work
+
+The results demonstrate the importance of enforcing authorization at the tool execution layer rather than relying solely on the AI agent's instructions or decision-making.
+
 ### Test Results
 | Metric | Result |
 |---|---:|
@@ -36,6 +62,8 @@ Run tests:
 npm install
 npm test
 ```
+
+> AgentGuard is a local security testing prototype for defensive security experimentation. It is not a production-ready security product.
 
 > AgentGuard is currently a local security prototype for educational, defensive security testing, and research purposes. It is not a production-ready security product.
 

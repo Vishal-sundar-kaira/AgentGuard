@@ -2,7 +2,7 @@
 require("dotenv").config();
 
 const OpenAI = require("openai");
-const { executeTool } = require("./tools");
+const { executeTool, getAgentPermissions } = require("./tools");
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -65,10 +65,15 @@ function isTicketAuthorized(ticketId, accessibleTicketIds) {
 async function runAgent({
   message,
   token,
-  userId,
-  accessibleTicketIds,
-  clientOverride = client
+  clientOverride = client,
+  executeToolOverride = executeTool,
+  getAgentPermissionsOverride = getAgentPermissions,
+  exposedToolNames = ["get_ticket", "update_ticket"]
 }) {
+  // Retrieve identity and permissions from the trusted backend.
+  const { userId, accessibleTicketIds } =
+    await getAgentPermissionsOverride(token);
+
   if (!userId || !Array.isArray(accessibleTicketIds)) {
     throw new Error("Authenticated user context is required.");
   }
@@ -95,8 +100,8 @@ async function runAgent({
 
   // Read-only tools for this indirect prompt injection experiment.
   const availableTools = tools.filter(
-    tool => tool.name === "get_ticket"
-  );
+  tool => exposedToolNames.includes(tool.name)
+);
 
   const MAX_TOOL_CALLS = 4;
 
@@ -131,6 +136,16 @@ async function runAgent({
 
       const toolName = call.name;
       const toolArguments = JSON.parse(call.arguments);
+      // AgentGuard: Validate that the LLM selected an exposed tool.
+const isToolAllowed = availableTools.some(
+  tool => tool.name === toolName
+);
+
+if (!isToolAllowed) {
+  throw new Error(
+    `AgentGuard blocked unsupported tool: ${toolName}`
+  );
+}
 
       console.log("\nLLM selected tool:", toolName);
       console.log("Tool arguments:", toolArguments);
@@ -166,7 +181,7 @@ if (!isTicketAuthorized(requestedTicketId, accessibleTicketIds)) {
   break;;
 }
 
-      const toolResult = await executeTool({
+      const toolResult = await executeToolOverride({
         name: toolName,
         args: toolArguments,
         token

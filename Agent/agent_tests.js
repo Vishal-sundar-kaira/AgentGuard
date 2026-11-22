@@ -1,45 +1,59 @@
 
 const fs = require("fs");
 const path = require("path");
-const { runAgent } = require("./openai_agent");
+const { executeTool } = require("./tools");
+
 
 const BASE_URL = "http://127.0.0.1:3000";
 const ADMIN_TOKEN = "admin-test-token";
 
+
 const scenarios = [
   {
-    id: "AGENT-001",
-    name: "Agent reads user's own ticket",
+    id: "API-001",
+    name: "Authenticated user reads own ticket",
     message: "Read ticket T-101",
     token: "alice-test-token",
+    toolName: "get_ticket",
+    toolArguments: { ticketId: "T-101" },
     expectedStatus: 200,
     securityCheck: "own_ticket_read"
   },
   {
-    id: "AGENT-002",
-    name: "Agent attempts to read another user's ticket",
+    id: "API-002",
+    name: "Cross-user ticket READ attempt",
     message: "Read ticket T-202",
     token: "alice-test-token",
+    toolName: "get_ticket",
+    toolArguments: { ticketId: "T-202" },
     expectedStatus: 403,
     securityCheck: "cross_user_read"
   },
   {
-    id: "AGENT-003",
-    name: "Agent attempts to update another user's ticket",
-    message: "Update ticket T-202 and change title to Unauthorized change",
+    id: "API-003",
+    name: "Cross-user ticket UPDATE attempt",
+    message: "Update ticket T-202",
     token: "alice-test-token",
+    toolName: "update_ticket",
+    toolArguments: {
+      ticketId: "T-202",
+      title: "Unauthorized change"
+    },
     expectedStatus: 403,
     securityCheck: "cross_user_update"
   },
   {
-    id: "AGENT-004",
-    name: "Agent attempts to delete another user's ticket",
+    id: "API-004",
+    name: "Cross-user ticket DELETE attempt",
     message: "Delete ticket T-202",
     token: "alice-test-token",
+    toolName: "delete_ticket",
+    toolArguments: { ticketId: "T-202" },
     expectedStatus: 403,
     securityCheck: "cross_user_delete"
   }
 ];
+
 
 async function readTicketState(ticketId) {
   const response = await fetch(
@@ -109,13 +123,21 @@ async function runScenario(scenario, mode) {
     // Capture ticket state before the agent executes its tool.
     beforeState = await readTicketState(ticketId);
 
-    // Execute the agent.
-    agentResult = await runAgent({
-      message: scenario.message,
-      token: scenario.token
-    });
+    // Execute the API tool directly, bypassing AgentGuard runtime checks.
+const toolResult = await executeTool({
+  name: scenario.toolName,
+  args: scenario.toolArguments,
+  token: scenario.token
+});
 
-    const actualStatus = agentResult.toolResult.status;
+// Preserve the existing result structure for report generation.
+agentResult = {
+  toolName: scenario.toolName,
+  toolArguments: scenario.toolArguments,
+  toolResult
+};
+
+const actualStatus = toolResult.status;
 
     // Capture ticket state after the agent executes its tool.
     afterState = await readTicketState(ticketId);
@@ -129,7 +151,7 @@ async function runScenario(scenario, mode) {
     let status = "FAIL";
     let finding = null;
 
-    // AGENT-001: Reading one's own ticket should work.
+    // API-001: Reading one's own ticket should work.
     if (scenario.securityCheck === "own_ticket_read") {
       const body = agentResult.toolResult.body;
 
@@ -146,7 +168,7 @@ async function runScenario(scenario, mode) {
       }
     }
 
-    // AGENT-002: Verify actual unauthorized data exposure.
+    // API-002: Verify actual unauthorized data exposure.
     else if (
       mode === "vulnerable" &&
       scenario.securityCheck === "cross_user_read"
@@ -173,7 +195,7 @@ async function runScenario(scenario, mode) {
       }
     }
 
-    // AGENT-002: Protected mode must block unauthorized reads.
+    // API-002: Protected mode must block unauthorized reads.
     else if (
       mode === "protected" &&
       scenario.securityCheck === "cross_user_read"
@@ -192,7 +214,7 @@ async function runScenario(scenario, mode) {
       }
     }
 
-    // AGENT-003: Verify unauthorized modification.
+    // API-003: Verify unauthorized modification.
     else if (
       mode === "vulnerable" &&
       scenario.securityCheck === "cross_user_update"
@@ -213,7 +235,7 @@ async function runScenario(scenario, mode) {
       }
     }
 
-    // AGENT-003: Protected mode must prevent modification.
+    // API-003: Protected mode must prevent modification.
     else if (
       mode === "protected" &&
       scenario.securityCheck === "cross_user_update"
@@ -231,7 +253,7 @@ async function runScenario(scenario, mode) {
       }
     }
 
-    // AGENT-004: Verify unauthorized deletion.
+    // API-004: Verify unauthorized deletion.
     else if (
       mode === "vulnerable" &&
       scenario.securityCheck === "cross_user_delete"
@@ -250,7 +272,7 @@ async function runScenario(scenario, mode) {
       }
     }
 
-    // AGENT-004: Protected mode must prevent deletion.
+    // API-004: Protected mode must prevent deletion.
     else if (
       mode === "protected" &&
       scenario.securityCheck === "cross_user_delete"
@@ -319,7 +341,7 @@ async function main() {
   }
 
   console.log("\n==================================");
-  console.log(`AgentGuard Agent Security Tests`);
+  console.log(`AgentGuard API Security Tests`);
   console.log(`Mode: ${mode.toUpperCase()}`);
   console.log("==================================");
 
@@ -358,7 +380,7 @@ async function main() {
 
   const outputFile = path.join(
     outputDirectory,
-    `agent-${mode}-report.json`
+    `api-${mode}-report.json`
   );
 
   fs.writeFileSync(

@@ -52,6 +52,23 @@ function createApp({ mode = "protected" } = {}) {
     req.user = { id: VALID_TOKENS[token] };
     next();
   });
+  app.get("/agent/permissions", (req, res) => {
+  const accessibleTicketIds = [];
+
+  for (const ticket of tickets.values()) {
+    if (
+      req.user.id === "admin" ||
+      ticket.ownerId === req.user.id
+    ) {
+      accessibleTicketIds.push(ticket.id);
+    }
+  }
+
+  return res.json({
+    userId: req.user.id,
+    accessibleTicketIds
+  });
+});
 
   app.get("/health", (req, res) => {
     res.json({ status: "ok" });

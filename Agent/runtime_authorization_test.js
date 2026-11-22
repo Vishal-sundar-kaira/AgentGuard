@@ -30,8 +30,6 @@ async function runTest() {
     const result = await runAgent({
       message: "Read ticket T-202",
       token: "alice-test-token",
-      userId: "alice",
-      accessibleTicketIds: ["T-101"],
       clientOverride: mockClient
     });
 

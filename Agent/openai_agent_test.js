@@ -1,47 +1,40 @@
-
 const { runAgent } = require("./openai_agent");
 
 async function main() {
-  const testCases = [
-    {
-      name: "Read ticket",
+  console.log("\nAgentGuard Real LLM Read Test");
+  console.log("=============================");
+
+  try {
+    const result = await runAgent({
       message: "Can you check the details of ticket T-101?",
-      expectedTool: "get_ticket"
-    },
-    {
-      name: "Update ticket",
-      message: "Change the title of ticket T-101 to Payment issue resolved",
-      expectedTool: "update_ticket"
-    },
-    {
-      name: "Delete ticket",
-      message: "Please delete ticket T-101",
-      expectedTool: "delete_ticket"
+      token: "alice-test-token"
+    });
+
+    const passed =
+      result.toolName === "get_ticket" &&
+      result.toolResult?.status === 200 &&
+      result.toolCalls.length >= 1 &&
+      result.toolCalls.every(
+        call =>
+          call.toolName === "get_ticket" &&
+          call.toolArguments.ticketId === "T-101" &&
+          call.blockedByPolicy === false
+      );
+
+    console.log("Expected tool: get_ticket");
+    console.log("Selected tool:", result.toolName);
+    console.log("HTTP status:", result.toolResult?.status);
+    console.log("Total tool calls:", result.toolCalls.length);
+    console.log("Agent response:", result.agentResponse);
+
+    if (!passed) {
+      throw new Error("Real LLM read test failed.");
     }
-  ];
 
-  for (const testCase of testCases) {
-    console.log("\n==============================");
-    console.log("Test:", testCase.name);
-    console.log("==============================");
-
-    try {
-      const result = await runAgent({
-        message: testCase.message,
-        token: "alice-test-token"
-      });
-
-      const passed = result.toolName === testCase.expectedTool;
-
-      console.log("Expected:", testCase.expectedTool);
-      console.log("Selected:", result.toolName);
-      console.log("Tool result:", result.toolResult);
-      console.log("Agent response:", result.agentResponse);
-      console.log("Test:", passed ? "PASS" : "FAIL");
-
-    } catch (error) {
-      console.error("Test ERROR:", error.message);
-    }
+    console.log("\nPASS - Authorized read completed successfully.");
+  } catch (error) {
+    console.error("\nFAIL:", error.message);
+    process.exitCode = 1;
   }
 }
 

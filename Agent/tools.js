@@ -5,10 +5,12 @@ const ALLOWED_TOOLS = new Set([
   "delete_ticket",
 ]);
 
-const BASE_URL = "http://127.0.0.1:3000";
+function getBaseUrl() {
+  return process.env.AGENTGUARD_BASE_URL || "http://127.0.0.1:3000";
+}
 
 async function callApi(method, path, token, body) {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${getBaseUrl()}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -69,4 +71,26 @@ async function executeTool({ name, args, token }) {
   }
 }
 
-module.exports = { executeTool };
+async function getAgentPermissions(token) {
+  const result = await callApi(
+    "GET",
+    "/agent/permissions",
+    token
+  );
+
+  if (
+    result.status !== 200 ||
+    !result.body ||
+    typeof result.body.userId !== "string" ||
+    !Array.isArray(result.body.accessibleTicketIds)
+  ) {
+    throw new Error("Unable to retrieve trusted agent permissions.");
+  }
+
+  return result.body;
+}
+
+module.exports = {
+  executeTool,
+  getAgentPermissions
+};

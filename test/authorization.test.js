@@ -170,3 +170,43 @@ test("vulnerable mode reproduces unauthorized ticket deletion", async () => {
 
   assert.equal(followUp.status, 404);
 });
+
+
+test("permission endpoint returns only Alice's tickets", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .get("/agent/permissions")
+    .set("Authorization", "Bearer alice-test-token");
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.userId, "alice");
+  assert.deepEqual(response.body.accessibleTicketIds, ["T-101"]);
+});
+
+test("permission endpoint returns only Bob's tickets", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .get("/agent/permissions")
+    .set("Authorization", "Bearer bob-test-token");
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.userId, "bob");
+  assert.deepEqual(response.body.accessibleTicketIds, ["T-202"]);
+});
+
+test("permission endpoint returns all tickets for admin", async () => {
+  const app = createApp({ mode: "protected" });
+
+  const response = await request(app)
+    .get("/agent/permissions")
+    .set("Authorization", "Bearer admin-test-token");
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.userId, "admin");
+  assert.deepEqual(
+    response.body.accessibleTicketIds,
+    ["T-101", "T-202"]
+  );
+});

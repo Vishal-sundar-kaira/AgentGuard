@@ -1,12 +1,12 @@
 const { isTicketAuthorized } = require("./openai_agent");
-const { executeTool } = require("./tools");
+const { executeTool, getAgentPermissions } = require("./tools");
 
 async function runTest() {
-  const user = {
-    id: "alice",
-    token: "alice-test-token",
-    accessibleTicketIds: ["T-101"]
-  };
+const user = {
+  token: "alice-test-token"
+};
+
+const permissions = await getAgentPermissions(user.token);
 
   // Simulate the LLM selecting this tool call.
   const simulatedToolCall = {
@@ -18,14 +18,14 @@ async function runTest() {
 
   console.log("\nAgentGuard Integration Test");
   console.log("---------------------------");
-  console.log("User:", user.id);
+console.log("User:", permissions.userId);
   console.log("Selected tool:", simulatedToolCall.name);
   console.log("Requested ticket:", simulatedToolCall.arguments.ticketId);
 
-  const authorized = isTicketAuthorized(
-    simulatedToolCall.arguments.ticketId,
-    user.accessibleTicketIds
-  );
+const authorized = isTicketAuthorized(
+  simulatedToolCall.arguments.ticketId,
+  permissions.accessibleTicketIds
+);
 
   if (!authorized) {
     console.log("\nAGENTGUARD: BLOCKED");
